@@ -1,117 +1,40 @@
 import torch
 import torch.nn as nn
 import pandas as pd
-from transformers import  AutoTokenizer, AutoModel
+from torch.utils.data import DataLoader, TensorDataset, random_split
+from transformers import AutoTokenizer, AutoModel
+from .BottleNeck import BottleNeck
+from tqdm import tqdm
+
 
 class Tokenizer():
     def __init__(self, model_type):
         self.tokenizer = None
 
         if model_type == "BERT":
-            self.tokenizer = AutoTokenizer.from_pretrained("bert-base-multilingual-cased")
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                "bert-base-multilingual-cased")
         elif model_type == "KoBERT":
-            self.tokenizer = AutoTokenizer.from_pretrained("snunlp/KR-Medium") 
+            self.tokenizer = AutoTokenizer.from_pretrained("snunlp/KR-Medium")
         else:
             raise Exception("Invalid model type")
+
 
 class BaseBERT():
     def __init__(self, model_type):
         self.model = None
 
         if model_type == "BERT":
-            self.model = AutoModel.from_pretrained("bert-base-multilingual-cased")
+            self.model = AutoModel.from_pretrained(
+                "bert-base-multilingual-cased")
         elif model_type == "KoBERT":
-            self.model = AutoModel.from_pretrained("snunlp/KR-Medium") 
+            self.model = AutoModel.from_pretrained("snunlp/KR-Medium")
         else:
             raise Exception("Invalid model type")
-        
-class TrainBottleNeck(nn.Module):
-    def __init__(self, stacks):
-        super(TrainBottleNeck, self).__init__()
-        self.layers = []
-        for idx, stack in enumerate(stacks):
-            method = stack["method"]
-            
-            if method == "Linear":
-                input_size = stack["input_size"]
-                output_size = stack["output_size"]
-                linear_layer = nn.Linear(input_size, output_size)
-                self.layers.append(linear_layer)
-                if idx < len(stacks) - 1:  # Apply ReLU for all but the last Linear layer
-                    self.layers.append(nn.ReLU())
-            elif method == "Dropout":
-                dropout_rate = stack["dropout_rate"]
-                self.layers.append(nn.Dropout(dropout_rate))
-            else:
-                raise Exception("Invalid method")
 
-    def forward(self, bert_output):
-        bert_pooled_output = bert_output.pooler_output
-        for layer in self.layers:
-            bert_pooled_output = layer(bert_pooled_output)
-        return bert_pooled_output
-    
-class TrainBottleNeck(nn.Module):
-    def __init__(self, stacks):
-        super(TrainBottleNeck, self).__init__()
-        self.layers = []
-        for idx, stack in enumerate(stacks):
-            method = stack["method"]
-            
-            if method == "Linear":
-                input_size = stack["input_size"]
-                output_size = stack["output_size"]
-                linear_layer = nn.Linear(input_size, output_size)
-                self.layers.append(linear_layer)
-                if idx < len(stacks) - 1:  # Apply ReLU for all but the last Linear layer
-                    self.layers.append(nn.ReLU())
-            elif method == "Dropout":
-                dropout_rate = stack["dropout_rate"]
-                self.layers.append(nn.Dropout(dropout_rate))
-            else:
-                raise Exception("Invalid method")
-        
-    def description(self):
-        print("Train BottleNeck")
-        for layer in self.layers:
-            print(layer)
+    def save():
+        pass
 
-    def forward(self, bert_output):
-        output = bert_output.pooler_output
-        for layer in self.layers:
-            output = layer(output)
-        return output
-
-class InferenceBottleNeck():
-    def __init__(self, stacks):
-        super(InferenceBottleNeck, self).__init__()
-        self.layers = []
-        for idx, stack in enumerate(stacks):
-            method = stack["method"]
-            
-            if method == "Linear":
-                input_size = stack["input_size"]
-                output_size = stack["output_size"]
-                linear_layer = nn.Linear(input_size, output_size)
-                self.layers.append(linear_layer)
-                if idx < len(stacks) - 1:  # Apply ReLU for all but the last Linear layer
-                    self.layers.append(nn.ReLU())
-            elif method == "Dropout":
-                dropout_rate = stack["dropout_rate"]
-                self.layers.append(nn.Dropout(dropout_rate))
-            else:
-                raise Exception("Invalid method")
-            
-    def description(self):
-        print("Inference BottleNeck")
-        for layer in self.layers:
-            print(layer)
-
-    def forward(self, bert_output):
-        output = bert_output
-        for layer in self.layers:
-            output = layer(output)
-        return output
 
 class MontecarloMethod():
     def __init__(self, montecarlo_method):
@@ -124,9 +47,15 @@ class MontecarloMethod():
             montecarlo_outputs = torch.mean(montecarlo_outputs, dim=0)
         else:
             raise Exception("Invalid montecarlo method")
-        
+
+
 class MCDO_BERT():
-    def __init__(self, model_type, montecarlo_num, train_bottle_neck_stacks, inference_bottle_neck_stacks):
+    def __init__(self, model_type,
+                 montecarlo_num,
+                 train_bottle_neck_stacks,
+                 inference_bottle_neck_stacks,
+                 device=None):
+
         self.model_type = model_type
         self.montecarlo_num = montecarlo_num
         self.train_bottle_neck_stacks = train_bottle_neck_stacks
@@ -137,56 +66,82 @@ class MCDO_BERT():
         self.montecarlo_method = MontecarloMethod(self.montecarlo_num)
 
         # define device
-        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        if device == None:
+            self.device = torch.device(
+                "cuda") if torch.cuda.is_available() else torch.device("cpu")
+        else:
+            self.device = torch.device(device)
         self.base_bert.to(self.device)
-        self.train_bottle_neck = TrainBottleNeck(train_bottle_neck_stacks)
-        self.inference_bottle_neck = InferenceBottleNeck(inference_bottle_neck_stacks)
+
+        self.train_bottle_neck = BottleNeck(train_bottle_neck_stacks, device)
+        self.inference_bottle_neck = BottleNeck(
+            inference_bottle_neck_stacks, device)
 
     def inference(self, text):
         # predict (base_bert + prediction_bottle_neck)
         with torch.no_grad():
             inputs = self.tokenizer(text, return_tensors="pt", padding=True)
-            inputs = {key: value.to(self.device) for key, value in inputs.items()}
+            inputs = {key: value.to(self.device)
+                      for key, value in inputs.items()}
             base_bert_outputs = self.base_bert(**inputs)
             bert_pooler_output = base_bert_outputs.pooler_output
-            inference_bottle_neck_outputs = self.inference_bottle_neck.forward(bert_pooler_output)
-            predicted_label = torch.argmax(inference_bottle_neck_outputs, dim=-1).item()
+            inference_bottle_neck_outputs = self.inference_bottle_neck.forward(
+                bert_pooler_output)
 
-        return predicted_label
-    
+        return torch.sum(inference_bottle_neck_outputs)
+
     def fine_tunning(self, dataset, epochs=3, batch_size=16):
         # define optimizer and loss function
         optimizer = torch.optim.AdamW(self.base_bert.parameters(), lr=5e-5)
         loss_fn = torch.nn.CrossEntropyLoss()
 
         # split dataset into train and test
+        labels = dataset["label"].map({"높음": 2, "보통": 1, "낮음": 0})
+        texts = dataset["text"]
+        encoded_texts = self.tokenizer(
+            texts.tolist(), return_tensors="pt", padding=True, truncation=True)
+        input_dataset = TensorDataset(
+            encoded_texts["input_ids"], encoded_texts["attention_mask"], torch.tensor(labels.tolist()))
+
         train_ratio = 0.8
-        train_size = int(len(dataset) * train_ratio)
-        test_size = len(dataset) - train_size
-        train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+        train_size = int(len(input_dataset) * train_ratio)
+        test_size = len(input_dataset) - train_size
+        train_dataset, test_dataset = torch.utils.data.random_split(
+            input_dataset, [train_size, test_size])
 
         # define data loader
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=batch_size, shuffle=True)
+        test_loader = torch.utils.data.DataLoader(
+            test_dataset, batch_size=batch_size, shuffle=True)
 
         # train (base_bert + train_bottle_neck)
-        for epoch in range(epochs):
+        for epoch in tqdm(range(epochs)):
             self.base_bert.train()
-            print("train loader :", train_loader)
             for batch in train_loader:
-                inputs = self.tokenizer(batch["text"], return_tensors="pt", padding=True)
-                labels = batch["labels"].to(self.device)
-                
+                input_ids, attention_mask, labels = batch
+                input_ids, attention_mask, labels = input_ids.to(
+                    self.device), attention_mask.to(self.device), labels.to(self.device)
+
                 optimizer.zero_grad()
 
-                base_bert_outputs = self.base_bert(**inputs)
+                base_bert_outputs = self.base_bert(
+                    input_ids, attention_mask=attention_mask)
                 bert_pooler_output = base_bert_outputs.pooler_output
-                train_bottle_neck_outputs = self.train_bottle_neck.forward(base_bert_outputs)  # Pass through train_bottle_neck
-                
+                # print bert_pooler_output is cpu or gpu
+                # pass through train_bottle_neck
+
+                # print("device :", self.train_bottle_neck.device)
+                self.train_bottle_neck.cuda()
+                self.train_bottle_neck.to(self.device)
+                # print(self.train_bottle_neck.expected_moved_cuda_tensor.device)
+                train_bottle_neck_outputs = self.train_bottle_neck.forward(
+                    bert_pooler_output)  # Pass through train_bottle_neck
+
                 loss = loss_fn(train_bottle_neck_outputs, labels)
                 loss.backward()
                 optimizer.step()
-        
+
     def montecarlo_inference(self, text):
         montecarlo_outputs = []
 
@@ -194,15 +149,18 @@ class MCDO_BERT():
             # Monte Carlo method
             for _ in range(self.montecarlo_num):
                 # BERT outputs
-                inputs = self.tokenizer(text, return_tensors="pt", padding=True)
+                inputs = self.tokenizer(
+                    text, return_tensors="pt", padding=True)
                 outputs = self.model(**inputs)
 
                 # Pass through prediction_bottle_neck
                 base_bert_outputs = outputs.logits
-                prediction_bottle_neck_outputs = self.inference_bottle_neck.forward(base_bert_outputs)
+                prediction_bottle_neck_outputs = self.inference_bottle_neck.forward(
+                    base_bert_outputs)
 
                 # Pass through montecarlo_method
-                montecarlo_output = self.montecarlo_method(prediction_bottle_neck_outputs)
+                montecarlo_output = self.montecarlo_method(
+                    prediction_bottle_neck_outputs)
                 montecarlo_outputs.append(montecarlo_output)
 
         # Calculate mean and std
