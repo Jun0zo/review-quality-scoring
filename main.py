@@ -1,12 +1,13 @@
 import pandas as pd
 import sys
-from Class.BERT import MCDO_BERT
+from Class.MCDO_BERT import MCDO_BERT
 
 
 # read data
 dataset = pd.read_csv("data/train_data.csv")
 
 config = {
+    "model_name": "",
     "model_type": "BERT",
     "device": "cpu",
     "montecarlo_num": 10,

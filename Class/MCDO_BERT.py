@@ -1,52 +1,14 @@
 import torch
 import torch.nn as nn
 import pandas as pd
+from tqdm import tqdm
 from torch.utils.data import DataLoader, TensorDataset, random_split
 from transformers import AutoTokenizer, AutoModel
+
 from .BottleNeck import BottleNeck
-from tqdm import tqdm
-
-
-class Tokenizer():
-    def __init__(self, model_type):
-        self.tokenizer = None
-
-        if model_type == "BERT":
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                "bert-base-multilingual-cased")
-        elif model_type == "KoBERT":
-            self.tokenizer = AutoTokenizer.from_pretrained("snunlp/KR-Medium")
-        else:
-            raise Exception("Invalid model type")
-
-
-class BaseBERT():
-    def __init__(self, model_type):
-        self.model = None
-
-        if model_type == "BERT":
-            self.model = AutoModel.from_pretrained(
-                "bert-base-multilingual-cased")
-        elif model_type == "KoBERT":
-            self.model = AutoModel.from_pretrained("snunlp/KR-Medium")
-        else:
-            raise Exception("Invalid model type")
-
-    def save():
-        pass
-
-
-class MontecarloMethod():
-    def __init__(self, montecarlo_method):
-        self.montecarlo_method = montecarlo_method
-
-    def __call__(self, montecarlo_outputs):
-        if self.montecarlo_method == "sum":
-            montecarlo_outputs = torch.sum(montecarlo_outputs, dim=0)
-        elif self.montecarlo_method == "mean":
-            montecarlo_outputs = torch.mean(montecarlo_outputs, dim=0)
-        else:
-            raise Exception("Invalid montecarlo method")
+from .BaseBERT import BaseBERT
+from .BaseTokenizer import Tokenizer
+from .MontecarloMethod import MontecarloMethod
 
 
 class MCDO_BERT():
