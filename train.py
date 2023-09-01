@@ -7,10 +7,9 @@ from Class.MCDO_BERT import MCDO_BERT
 dataset = pd.read_csv("data/train_data.csv")
 
 config = {
-    "model_name": "",
-    "model_type": "BERT",
-    "device": "cpu",
-    "montecarlo_num": 10,
+    "model_name": "KoBERT-l2-d2_1",
+    "bert_type": "KoBERT",
+    "device": "cuda:0",
     "train_bottle_neck_stacks": [
         {
             "method": "Linear",
@@ -18,32 +17,26 @@ config = {
             "output_size": 3
         }
     ],
+    "montecarlo_num": 100,
+    "montecarlo_method": "mean",
     "inference_bottle_neck_stacks": [
         {
             "method": "Dropout",
-            "dropout_rate": 0.1,
+            "dropout_rate": 0.3,
         },
-        {
-            "method": "Dropout",
-            "dropout_rate": 0.1,
-        },
+        # {
+        #     "method": "Dropout",
+        #     "dropout_rate": 0.3,
+        # },
     ]
 }
-
-# Define a sample text for classification
-sample_text = "이 영화 정말 재미있었어요!"
-sample_text = "엥"
 
 # Create an instance of the class
 model = MCDO_BERT(**config)
 
-# model.description()
-
-# Predict the label of the sample text
-for _ in range(10):
-    res = model.inference(sample_text)
-    print("res : ", res)
+model.description()
 
 # Train the model
 print("Fine tunning")
 model.fine_tunning(dataset, epochs=3, batch_size=16)
+model.save()

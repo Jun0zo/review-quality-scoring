@@ -1,0 +1,26 @@
+[
+    {
+        "model_name": "BERT-l2-d2_1",
+        "bert_type": "BERT",
+        "device": "cuda:0",
+        "train_bottle_neck_stacks": [
+            {
+                "method": "Linear",
+                "input_size": 768,
+                "output_size": 3
+            }
+        ],
+        "montecarlo_num": 100,
+        "montecarlo_method": "mean",
+        "inference_bottle_neck_stacks": [
+            {
+                "method": "Dropout",
+                "dropout_rate": 0.3
+            },
+            {
+                "method": "Dropout",
+                "dropout_rate": 0.3
+            }
+        ]
+    }
+]

@@ -37,13 +37,8 @@ class BottleNeck(nn.Module):
         for layer in self.layers:
             print(layer)
 
-    def save(self, path):
-        state_dict = {}
-        for idx, layer in enumerate(self.layers):
-            if isinstance(layer, nn.Linear):
-                state_dict[f'linear_{idx}'] = layer.state_dict()
-
-        torch.save(state_dict, path)
+    def save(self):
+        pass
 
     def forward(self, bert_output):
         output = bert_output
