@@ -7,9 +7,9 @@ from Class.MCDO_BERT import MCDO_BERT
 dataset = pd.read_csv("data/train_data.csv")
 
 config = {
-    "model_name": "KoBERT-l2-d2_1",
+    "model_name": "KoBERT-l2-d2_ep10",
     "bert_type": "KoBERT",
-    "device": "cuda:0",
+    "device": "cpu",
     "train_bottle_neck_stacks": [
         {
             "method": "Linear",
@@ -38,5 +38,5 @@ model.description()
 
 # Train the model
 print("Fine tunning")
-model.fine_tunning(dataset, epochs=3, batch_size=16)
+model.fine_tunning(dataset, epochs=10, batch_size=16)
 model.save()

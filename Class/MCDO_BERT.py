@@ -38,16 +38,16 @@ class MCDO_BERT():
         self.base_bert = BaseBERT(bert_type=self.bert_type, device=self.device)
         self.base_bert.load(self.model_name)
 
-        
         self.bert_type = bert_type
         self.montecarlo_num = montecarlo_num
         self.train_bottle_neck_stacks = train_bottle_neck_stacks
         self.inference_bottle_neck_stacks = inference_bottle_neck_stacks
-        
+
         self.montecarlo_method = MontecarloMethod(montecarlo_method)
         self.train_bottle_neck = BottleNeck(train_bottle_neck_stacks, device)
-        self.inference_bottle_neck = BottleNeck(inference_bottle_neck_stacks, device)
-        
+        self.inference_bottle_neck = BottleNeck(
+            inference_bottle_neck_stacks, device)
+
         self.train_bottle_neck.to(self.device)
         self.inference_bottle_neck.to(self.device)
 
@@ -103,7 +103,6 @@ class MCDO_BERT():
                 # print("attention_mask", attention_mask.shape)
                 # print('type : ', self.base_bert.bert_type)
 
-                
                 base_bert_outputs = self.base_bert(
                     input_ids, attention_mask=attention_mask)
                 bert_pooler_output = base_bert_outputs.pooler_output
@@ -111,7 +110,7 @@ class MCDO_BERT():
                 # pass through train_bottle_neck
 
                 # print("device :", self.train_bottle_neck.device)
-                
+
                 # print(self.train_bottle_neck.expected_moved_cuda_tensor.device)
                 train_bottle_neck_outputs = self.train_bottle_neck.forward(
                     bert_pooler_output)  # Pass through train_bottle_neck
@@ -129,19 +128,21 @@ class MCDO_BERT():
             inputs = self.tokenizer(
                 text, return_tensors="pt", padding=True)
             inputs = {key: value.to(self.device)
-                    for key, value in inputs.items()}
+                      for key, value in inputs.items()}
             try:
-                outputs = self.base_bert(inputs["input_ids"], inputs["attention_mask"])
+                outputs = self.base_bert(
+                    inputs["input_ids"], inputs["attention_mask"])
                 base_bert_outputs = outputs.last_hidden_state[:, 0, :]
             except Exception as e:
-                print("error ", e, inputs["input_ids"].shape, inputs["attention_mask"].shape, text)
+                print("error ", e, inputs["input_ids"].shape,
+                      inputs["attention_mask"].shape, text)
 
             # Monte Carlo method
             for _ in range(self.montecarlo_num):
                 # Pass through prediction_bottle_neck
                 prediction_bottle_neck_outputs = self.inference_bottle_neck.forward(
                     base_bert_outputs)
-                
+
                 # Pass through montecarlo_method
                 montecarlo_output = self.montecarlo_method(
                     prediction_bottle_neck_outputs)

@@ -88,17 +88,25 @@ def sort_by_score(results_by_row):
 
 
 def save_score_distib(sorted_df, save_path):
+    total_score = 0
     div_n = int(len(sorted_df) / 3)
-    for point, correct in [(div_n, '높음'), (div_n*2, '보통'), (div_n*3, '낮음')]:
-        print("---------------------------", correct)
-        div_df = sorted_df[:div_n]
-        correct_counts = div_df['label'].value_counts()[correct]
-        print(correct_counts, len(div_df), correct_counts / len(div_df))
-        sorted_df = sorted_df[div_n:]
+    with open(save_path, mode="w") as f:
+        for point, correct in [(div_n, '높음'), (div_n*2, '보통'), (div_n*3, '낮음')]:
+            f.write(f"---------------------------{correct}\n")
+            div_df = sorted_df[:div_n]
+            correct_counts = div_df['label'].value_counts()[correct]
+            # print(correct_counts, len(div_df), correct_counts / len(div_df))
+            for i in div_df['label'].value_counts():
+                percent = i / len(div_df)
+                f.write(f"{i} {len(div_df)} {percent:.3f}\n")
+
+            total_score += correct_counts / len(div_df)
+            sorted_df = sorted_df[div_n:]
+        f.write(f"\ntotal score : {total_score:.4}")
 
 
 def save_experiments(config):
-    base_path = f"{config['model_name']}/{config['montecarlo_num']}-{config['montecarlo_method']}-{str(config['inference_bottle_neck_stacks'][0]['dropout_rate'])}-{str(config['inference_bottle_neck_stacks'][1]['dropout_rate'])}"
+    base_path = f"result/{config['model_name']}/{config['montecarlo_num']}-{config['montecarlo_method']}-{str(config['inference_bottle_neck_stacks'][0]['dropout_rate'])}-{str(config['inference_bottle_neck_stacks'][1]['dropout_rate'])}"
 
     os.makedirs(base_path, exist_ok=True)
 
@@ -109,16 +117,17 @@ def save_experiments(config):
     sorted_df = sort_by_score(results_by_row)
     sorted_df.to_csv(f"{base_path}/sorted.csv", index=False)
 
-    save_score_distib(sorted_df, f"{base_path}/sorted.csv")
-
-# for montecarlo_num in (10, 100, 1000):
-#         for montecarlo_method in ("sum", "mean", "std", "norm2"):
-#             for dropout_rate_1 in (0, 100, 10):
-#                 for dropout_rate_2 in (0, 100, 10):
-#                     config["montecarlo_num"] = montecarlo_num
-#                     config["montecarlo_method"] = montecarlo_method
-#                     config["inference_bottle_neck_stacks"][0]["dropout_rate"] = dropout_rate_1
-#                     config["inference_bottle_neck_stacks"][1]["dropout_rate"] = dropout_rate_2
+    save_score_distib(sorted_df, f"{base_path}/scores.txt")
 
 
-save_experiments(config)
+for montecarlo_num in (10, 100, 1000):
+    for montecarlo_method in ("sum", "mean", "std", "norm2"):
+        for dropout_rate_1 in range(0, 100, 10):
+            for dropout_rate_2 in range(0, 100, 10):
+                print(dropout_rate_1, dropout_rate_2)
+                config["montecarlo_num"] = montecarlo_num
+                config["montecarlo_method"] = montecarlo_method
+                config["inference_bottle_neck_stacks"][0]["dropout_rate"] = dropout_rate_1 / 100
+                config["inference_bottle_neck_stacks"][1]["dropout_rate"] = dropout_rate_2 / 100
+                print(config)
+                save_experiments(config)
